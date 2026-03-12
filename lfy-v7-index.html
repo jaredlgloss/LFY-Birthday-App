@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Little Farmyard – Birthday Reminder</title>
+  <link rel="manifest" id="manifest-link">
+  <meta name="theme-color" content="#034e51">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LFY Birthdays">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --teal-deep:#034e51;--teal-mid:#1a7a6e;--teal-bright:#2fac99;
+      --teal-light:#a8ddd6;--teal-pale:#e6f5f3;
+      --peach:#f5c5ad;--peach-warm:#f0a882;
+      --cream:#fdf8f2;--cream-dark:#f5ede3;
+      --brown-dark:#341910;--brown-mid:#7a4b2e;
+      --text-dark:#1a2e2d;--text-mid:#3d5c5a;--text-light:#7a9b98;
+      --gold:#e8a838;--gold-light:#ffd97a;
+      --red-soft:#e05555;--green-wa:#25D366;--white:#ffffff;
+      --nav-h:68px;--hdr-h:68px;--radius:18px;--radius-sm:10px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html,body{height:100%;overflow:hidden;font-family:'Nunito',sans-serif;background:var(--teal-deep);}
+
+    /* SHELL */
+    .shell{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto;background:var(--cream);position:relative;overflow:hidden;}
+
+    /* HEADER */
+    .app-hdr{background:linear-gradient(145deg,var(--teal-deep),#065b5f);padding-top:env(safe-area-inset-top,0);flex-shrink:0;z-index:10;}
+    .hdr-inner{height:var(--hdr-h);display:flex;align-items:center;gap:14px;padding:0 18px;}
+    .hdr-logo{width:44px;height:44px;flex-shrink:0;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.18);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;animation:logoZoom .7s cubic-bezier(0.34,1.56,0.64,1) both;}
+    @keyframes logoZoom{from{transform:scale(0.3) rotate(-8deg);opacity:0;}to{transform:scale(1) rotate(0deg);opacity:1;}}
+    .hdr-center{flex:1;}
+    .hdr-school{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--teal-light);opacity:.85;}
+    .hdr-title{font-size:19px;font-weight:900;color:#fff;font-family:'Lora',serif;}
+    .hdr-date{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:6px 10px;text-align:center;}
+    .hd-day{font-size:21px;font-weight:900;color:var(--gold-light);line-height:1;}
+    .hd-mon{font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:1px;text-transform:uppercase;}
+
+    /* NOTIF STRIP */
+    .nstrip{display:flex;align-items:center;gap:10px;padding:7px 16px;background:var(--gold);cursor:pointer;}
+    .nstrip.on{background:rgba(47,172,153,0.15);cursor:default;}
+    .ns-txt{flex:1;font-size:12px;font-weight:700;color:var(--brown-dark);}
+    .nstrip.on .ns-txt{color:var(--teal-deep);}
+    .ns-btn{background:var(--brown-dark);color:var(--gold-light);border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800;font-family:'Nunito',sans-serif;cursor:pointer;}
+
+    .pages{flex:1;overflow:hidden;position:relative;}
+    .page{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px calc(var(--nav-h) + 20px);opacity:0;pointer-events:none;will-change:transform,opacity;}
+    .page.active{opacity:1;pointer-events:all;transform:translateX(0);}
+    .page.slide-in-right{animation:slideInRight .32s cubic-bezier(0.25,0.46,0.45,0.94) forwards;}
+    .page.slide-in-left{animation:slideInLeft .32s cubic-bezier(0.25,0.46,0.45,0.94) forwards;}
+    .page.slide-out-left{animation:slideOutLeft .32s cubic-bezier(0.25,0.46,0.45,0.94) forwards;}
+    .page.slide-out-right{animation:slideOutRight .32s cubic-bezier(0.25,0.46,0.45,0.94) forwards;}
+    @keyframes slideInRight{from{opacity:0;transform:translateX(60px);}to{opacity:1;transform:translateX(0);}}
+    @keyframes slideInLeft{from{opacity:0;transform:translateX(-60px);}to{opacity:1;transform:translateX(0);}}
+    @keyframes slideOutLeft{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(-60px);}}
+    @keyframes slideOutRight{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(60px);}}
+
+    /* 7-DAY STRIP */
+    .week-strip{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding:2px 1px 6px;scrollbar-width:none;}
+    .week-strip::-webkit-scrollbar{display:none;}
+    .wday{flex:1;min-width:38px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:12px;border:1.5px solid rgba(3,78,81,0.08);background:#fff;cursor:default;position:relative;}
+    .wday.has-bday{border-color:var(--teal-light);background:var(--teal-pale);}
+    .wday.is-today{border-color:var(--teal-deep);background:var(--teal-deep);}
+    .wday-name{font-size:10px;font-weight:800;font-family:'Nunito',sans-serif;color:var(--text-light);text-transform:uppercase;}
+    .wday.is-today .wday-name{color:rgba(255,255,255,0.75);}
+    .wday-num{font-size:15px;font-weight:900;font-family:'Nunito',sans-serif;color:var(--text-dark);}
+    .wday.is-today .wday-num{color:#fff;}
+    .wday.has-bday .wday-num{color:var(--teal-deep);}
+    .wday-dot{width:6px;height:6px;border-radius:50%;background:var(--teal-mid);opacity:0;}
+    .wday.has-bday .wday-dot{opacity:1;}
+    .wday.is-today .wday-dot{background:rgba(255,255,255,0.7);}
+    .bnav{position:absolute;bottom:0;left:0;right:0;height:var(--nav-h);background:#fff;border-top:1px solid rgba(3,78,81,0.07);display:flex;padding-bottom:env(safe-area-inset-bottom,0);z-index:20;box-shadow:0 -3px 18px rgba(3,78,81,0.07);}
+    .nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;padding:6px 4px;position:relative;}
+    .nb-ico{width:40px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;transition:background .2s;}
+    .nb.active .nb-ico{background:var(--teal-pale);}
+    .nb-lbl{font-size:11px;font-weight:700;color:var(--text-light);font-family:'Nunito',sans-serif;}
+    .nb.active .nb-lbl{color:var(--teal-deep);}
+    .nb-badge{position:absolute;top:2px;right:calc(50% - 24px);background:var(--red-soft);color:#fff;font-size:10px;font-weight:900;min-width:17px;height:17px;border-radius:9px;display:none;align-items:center;justify-content:center;padding:0 4px;}
+    .nb-badge.show{display:flex;}
+
+    /* SECTION HEADER */
+    .sec-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+    .sec-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+    .si-t{background:linear-gradient(135deg,#ff6b6b,#ee5a24);}
+    .si-u{background:linear-gradient(135deg,var(--teal-bright),var(--teal-mid));}
+    .sec-meta{flex:1;}
+    .sec-title{font-size:16px;font-weight:900;color:var(--text-dark);}
+    .sec-sub{font-size:12px;font-weight:600;color:var(--text-light);}
+
+    /* TODAY CARD */
+    .tcard{background:linear-gradient(135deg,#fff9f6,#fff3ee);border:2px solid var(--peach);border-radius:var(--radius);padding:18px;margin-bottom:12px;box-shadow:0 4px 18px rgba(240,168,130,0.18);position:relative;overflow:hidden;animation:fadeUp .35s ease both;}
+    .tcard::after{content:'🎂';position:absolute;right:-6px;top:-6px;font-size:68px;opacity:.07;transform:rotate(15deg);pointer-events:none;}
+    .tc-badge{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#ff6b6b,#ee5a24);color:#fff;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;margin-bottom:10px;}
+    .tc-name{font-size:20px;font-weight:900;color:var(--brown-dark);font-family:'Lora',serif;margin-bottom:3px;}
+    .tc-ctx{font-size:12px;font-weight:700;color:var(--brown-mid);margin-bottom:12px;line-height:1.55;}
+    .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;}
+    .chip{display:flex;align-items:center;gap:5px;background:rgba(3,78,81,0.06);border-radius:8px;padding:5px 9px;}
+    .chip-ico{font-size:13px;}
+    .chip-lbl{font-size:10px;font-weight:700;color:var(--text-light);}
+    .chip-val{font-size:12px;font-weight:800;color:var(--text-dark);}
+    .wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--green-wa);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;width:100%;cursor:pointer;text-decoration:none;transition:opacity .2s;}
+    .wa-btn:hover{opacity:.9;}
+
+    /* P2 tag on card */
+    .p2-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(26,122,110,0.1);color:var(--teal-mid);border-radius:6px;font-size:10px;font-weight:800;padding:2px 8px;margin-left:8px;vertical-align:middle;}
+
+    /* UPCOMING CARD */
+    .ucard{background:#fff;border:1.5px solid rgba(3,78,81,0.07);border-radius:var(--radius);padding:13px 15px;margin-bottom:10px;display:flex;align-items:center;gap:13px;box-shadow:0 2px 8px rgba(3,78,81,0.05);animation:fadeUp .3s ease both;}
+    .uc-date{flex-shrink:0;width:50px;height:56px;background:linear-gradient(145deg,var(--teal-deep),var(--teal-mid));border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;}
+    .uc-d{font-size:20px;font-weight:900;line-height:1;}
+    .uc-m{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.8;}
+    .uc-body{flex:1;min-width:0;}
+    .uc-name{font-size:15px;font-weight:800;color:var(--text-dark);}
+    .uc-sub{font-size:11px;font-weight:600;color:var(--text-light);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .uc-days{flex-shrink:0;background:var(--teal-pale);color:var(--teal-deep);border-radius:8px;padding:4px 8px;text-align:center;}
+    .uc-dn{font-size:16px;font-weight:900;display:block;line-height:1;}
+    .uc-dl{font-size:9px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:.5px;}
+
+    /* EMPTY */
+    .empty{background:#fff;border-radius:var(--radius);border:2px dashed rgba(3,78,81,0.1);padding:32px 20px;text-align:center;margin-bottom:16px;}
+    .empty-ico{font-size:44px;margin-bottom:10px;}
+    .empty-title{font-size:15px;font-weight:800;color:var(--text-dark);margin-bottom:6px;}
+    .empty-sub{font-size:12px;color:var(--text-light);line-height:1.65;}
+    .go-btn{margin-top:14px;display:inline-flex;align-items:center;gap:6px;background:var(--teal-deep);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;}
+
+    /* SETTINGS */
+    .sset{background:#fff;border-radius:var(--radius);border:1.5px solid rgba(3,78,81,0.07);overflow:hidden;margin-bottom:16px;}
+    .shdr{background:linear-gradient(135deg,var(--teal-deep),var(--teal-mid));padding:13px 18px;display:flex;align-items:center;gap:10px;}
+    .shdr-txt{font-size:14px;font-weight:800;color:#fff;flex:1;}
+    .sbody{padding:18px;}
+
+    .tab-row{display:flex;gap:8px;margin-bottom:16px;}
+    .tab-btn{flex:1;padding:9px 4px;border:2px solid var(--teal-light);border-radius:var(--radius-sm);background:transparent;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;color:var(--text-mid);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px;}
+    .tab-btn.active{background:var(--teal-deep);border-color:var(--teal-deep);color:#fff;}
+    .tab-panel{display:none;}
+    .tab-panel.active{display:block;}
+
+    .f-lbl{font-size:11px;font-weight:800;color:var(--text-mid);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;display:block;}
+    .f-inp{width:100%;padding:11px 13px;border:2px solid var(--teal-light);border-radius:var(--radius-sm);font-family:'Nunito',sans-serif;font-size:13px;color:var(--text-dark);background:var(--teal-pale);outline:none;transition:border .2s;}
+    .f-inp:focus{border-color:var(--teal-bright);}
+    .f-hint{font-size:11px;color:var(--text-light);margin-top:5px;line-height:1.55;}
+    .f-hint strong{color:var(--teal-mid);}
+
+    .act-btn{width:100%;padding:12px;background:linear-gradient(135deg,var(--teal-deep),var(--teal-mid));color:#fff;border:none;border-radius:var(--radius-sm);font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;transition:opacity .2s;}
+    .act-btn:hover{opacity:.88;}
+    .act-btn.sec{background:transparent;color:var(--teal-deep);border:2px solid var(--teal-light);}
+    .act-btn.danger{background:transparent;color:var(--red-soft);border:2px solid rgba(224,85,85,0.22);}
+
+    .drop-zone{border:2px dashed var(--teal-light);border-radius:var(--radius-sm);background:var(--teal-pale);padding:24px 16px;text-align:center;cursor:pointer;position:relative;transition:all .2s;}
+    .drop-zone:hover{border-color:var(--teal-bright);}
+    .drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+    .dz-ico{font-size:30px;margin-bottom:6px;}
+    .dz-txt{font-size:13px;font-weight:700;color:var(--teal-mid);}
+    .dz-sub{font-size:11px;color:var(--text-light);margin-top:3px;}
+
+    /* AUTO-MAP PREVIEW */
+    .map-preview{background:var(--cream-dark);border-radius:var(--radius-sm);padding:14px;margin-top:12px;}
+    .mp-title{font-size:11px;font-weight:800;color:var(--teal-deep);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+    .mp-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+    .mp-lbl{font-size:11px;font-weight:700;color:var(--text-mid);flex:0 0 110px;}
+    .mp-val{flex:1;font-size:11px;font-weight:800;color:var(--teal-deep);background:var(--teal-pale);border-radius:6px;padding:5px 9px;}
+    .mp-val.miss{color:var(--text-light);font-weight:600;font-style:italic;}
+    .mp-tip{font-size:10px;font-weight:700;color:var(--teal-bright);margin-top:8px;display:flex;align-items:center;gap:4px;}
+
+    /* Status */
+    .status{border-radius:var(--radius-sm);padding:10px 13px;font-size:12px;font-weight:700;margin-top:10px;display:none;align-items:center;gap:8px;}
+    .status.show{display:flex;}
+    .status.ok{background:rgba(47,172,153,0.12);color:var(--teal-deep);border:1.5px solid var(--teal-bright);}
+    .status.err{background:rgba(224,85,85,0.08);color:var(--red-soft);border:1.5px solid rgba(224,85,85,0.22);}
+    .status.load{background:var(--teal-pale);color:var(--teal-deep);border:1.5px solid var(--teal-light);}
+
+    /* Info rows */
+    .info-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(3,78,81,0.06);}
+    .info-row:last-child{border-bottom:none;}
+    .info-ico{font-size:20px;}
+    .info-body{flex:1;}
+    .info-lbl{font-size:12px;font-weight:800;color:var(--text-dark);}
+    .info-val{font-size:11px;color:var(--text-light);font-weight:600;margin-top:1px;word-break:break-all;}
+
+    /* PIN */
+    .pin-ov{position:absolute;inset:0;background:linear-gradient(160deg,var(--teal-deep) 0%,#043d40 50%,#065b5f 100%);z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 28px;animation:fadeIn .2s ease;}
+    .pin-ov.gone{display:none;}
+    .pin-big{font-size:50px;margin-bottom:8px;}
+    .pin-title{font-size:20px;font-weight:900;color:#fff;font-family:'Lora',serif;margin-bottom:4px;text-align:center;}
+    .pin-sub{font-size:13px;color:rgba(255,255,255,0.55);margin-bottom:36px;text-align:center;}
+    .pin-dots{display:flex;gap:16px;margin-bottom:40px;}
+    .pdot{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,0.35);transition:all .15s;}
+    .pdot.on{background:var(--gold-light);border-color:var(--gold-light);transform:scale(1.1);}
+    .pdot.bad{background:var(--red-soft);border-color:var(--red-soft);}
+    .pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%;max-width:270px;}
+    .pkey{aspect-ratio:1;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s,transform .12s;}
+    .pkey:active{background:rgba(255,255,255,0.26);transform:scale(0.91);}
+    .pkey.blank{background:transparent;pointer-events:none;}
+    .pkey.del{font-size:18px;}
+    .pin-err{font-size:12px;color:var(--peach);font-weight:700;margin-top:20px;opacity:0;transition:opacity .2s;}
+    .pin-err.show{opacity:1;}
+
+    .pin-ch-row{display:flex;gap:8px;margin-top:12px;}
+    .pin-ch-inp{flex:1;padding:10px 14px;border:2px solid var(--teal-light);border-radius:var(--radius-sm);font-family:'Nunito',sans-serif;font-size:18px;letter-spacing:6px;text-align:center;outline:none;background:var(--teal-pale);color:var(--text-dark);}
+    .pin-ch-inp:focus{border-color:var(--teal-bright);}
+
+    /* Guide */
+    .g-body{display:none;padding:16px 18px;font-size:13px;color:var(--text-mid);line-height:1.75;}
+    .g-body.open{display:block;}
+    .g-body code{background:var(--teal-pale);color:var(--teal-deep);padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700;}
+    .g-body strong{color:var(--teal-deep);}
+
+    /* Install */
+    .install-wrap{position:absolute;bottom:var(--nav-h);left:0;right:0;background:linear-gradient(135deg,var(--teal-deep),var(--teal-mid));padding:11px 16px;display:none;align-items:center;gap:10px;z-index:15;box-shadow:0 -2px 12px rgba(3,78,81,0.22);}
+    .install-wrap.show{display:flex;}
+    .iw-t{flex:1;}
+    .iw-title{font-size:13px;font-weight:800;color:#fff;}
+    .iw-sub{font-size:11px;color:rgba(255,255,255,0.65);}
+    .iw-btn{background:#fff;color:var(--teal-deep);border:none;border-radius:8px;padding:8px 14px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;}
+    .iw-x{background:none;border:none;color:rgba(255,255,255,0.5);font-size:18px;cursor:pointer;padding:4px;}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+    @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-7px);}75%{transform:translateX(7px);}}
+    @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+    .shake{animation:shake .28s ease;}
+    .spinner{width:14px;height:14px;border:2px solid rgba(3,78,81,0.18);border-top-color:var(--teal-mid);border-radius:50%;animation:spin .6s linear infinite;display:inline-block;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+  </style>
+</head>
+<body>
+
+<!-- ═══ APP LOCK — shown on every new device until correct password entered ═══ -->
+<div id="app-lock" style="
+  position:fixed;inset:0;z-index:999;
+  background:linear-gradient(160deg,var(--teal-deep) 0%,#043d40 50%,#065b5f 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:36px 28px;font-family:'Nunito',sans-serif;">
+  <div style="font-size:58px;margin-bottom:12px;">🌿</div>
+  <div style="font-size:22px;font-weight:900;color:#fff;font-family:'Lora',serif;text-align:center;margin-bottom:6px;">Little Farmyard</div>
+  <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-bottom:36px;text-align:center;">Birthday Reminder · Authorised users only</div>
+
+  <div style="width:100%;max-width:300px;">
+    <div style="font-size:11px;font-weight:800;color:var(--teal-light);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;text-align:center;">Enter App Password</div>
+    <input id="app-pw-inp" type="password" placeholder="Password"
+      style="width:100%;padding:14px 16px;border:2px solid rgba(255,255,255,0.15);border-radius:12px;
+      background:rgba(255,255,255,0.08);color:#fff;font-family:'Nunito',sans-serif;
+      font-size:16px;font-weight:700;outline:none;text-align:center;letter-spacing:3px;margin-bottom:12px;"
+      onkeydown="if(event.key==='Enter') checkAppLock()">
+    <button onclick="checkAppLock()" style="
+      width:100%;padding:14px;background:var(--teal-bright);color:#fff;border:none;
+      border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">
+      Unlock App 🔓
+    </button>
+    <div id="app-lock-err" style="color:var(--peach);font-size:12px;font-weight:700;text-align:center;margin-top:14px;opacity:0;transition:opacity .2s;">
+      ❌ Incorrect password — please try again.
+    </div>
+  </div>
+</div>
+<div class="shell">
+
+  <!-- HEADER -->
+  <header class="app-hdr">
+    <div class="hdr-inner">
+      <div class="hdr-logo" style="padding:0;overflow:hidden;"><img src="data:image/jpeg;base64,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" style="width:44px;height:44px;object-fit:cover;border-radius:11px;" alt="Little Farmyard"></div>
+      <div class="hdr-center">
+        <div class="hdr-school">Little Farmyard Pre-Primary</div>
+        <div class="hdr-title" id="page-title">Birthday Reminder</div>
+      </div>
+      <div class="hdr-date">
+        <div class="hd-day" id="hd-day">1</div>
+        <div class="hd-mon" id="hd-mon">JAN</div>
+      </div>
+    </div>
+    <div class="nstrip" id="nstrip" onclick="reqNotif()">
+      <span style="font-size:15px;">🔔</span>
+      <span class="ns-txt" id="ns-txt">Tap to enable birthday notifications</span>
+      <button class="ns-btn" id="ns-btn">Enable</button>
+    </div>
+  </header>
+
+  <!-- PAGES -->
+  <div class="pages">
+
+    <!-- TODAY -->
+    <div class="page active" id="pg-home"><div id="home-out"></div></div>
+
+    <!-- UPCOMING -->
+    <div class="page" id="pg-upcoming"><div id="upcoming-out"></div></div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="pg-settings">
+
+      <!-- PIN OVERLAY -->
+      <div class="pin-ov" id="pin-ov">
+        <div class="pin-big">🔐</div>
+        <div class="pin-title" id="pin-title">Settings PIN</div>
+        <div class="pin-sub"   id="pin-sub">Enter your 4-digit PIN</div>
+        <div class="pin-dots" id="pin-dots">
+          <div class="pdot" id="pd0"></div><div class="pdot" id="pd1"></div>
+          <div class="pdot" id="pd2"></div><div class="pdot" id="pd3"></div>
+        </div>
+        <div class="pin-pad">
+          <button class="pkey" onclick="pk('1')">1</button>
+          <button class="pkey" onclick="pk('2')">2</button>
+          <button class="pkey" onclick="pk('3')">3</button>
+          <button class="pkey" onclick="pk('4')">4</button>
+          <button class="pkey" onclick="pk('5')">5</button>
+          <button class="pkey" onclick="pk('6')">6</button>
+          <button class="pkey" onclick="pk('7')">7</button>
+          <button class="pkey" onclick="pk('8')">8</button>
+          <button class="pkey" onclick="pk('9')">9</button>
+          <button class="pkey blank"></button>
+          <button class="pkey" onclick="pk('0')">0</button>
+          <button class="pkey del" onclick="pdel()">⌫</button>
+        </div>
+        <div class="pin-err" id="pin-err">Incorrect PIN — try again.</div>
+      </div>
+
+      <!-- SETTINGS CONTENT -->
+      <div id="set-content" style="display:none;">
+
+        <!-- Data Source -->
+        <div class="sset">
+          <div class="shdr"><span style="font-size:18px;">📊</span><span class="shdr-txt">Birthday Data Source</span></div>
+          <div class="sbody">
+            <div class="tab-row">
+              <button class="tab-btn active" id="stab-gs" onclick="stab('gs')">🔗 Google Sheets</button>
+              <button class="tab-btn"        id="stab-xl" onclick="stab('xl')">📁 Excel / CSV</button>
+            </div>
+            <div class="tab-panel active" id="spnl-gs">
+              <label class="f-lbl" for="gs-url">Published CSV URL from Google Sheets</label>
+              <input type="url" class="f-inp" id="gs-url" placeholder="https://docs.google.com/spreadsheets/d/...">
+              <p class="f-hint"><strong>How:</strong> File → Share → Publish to web → CSV → Copy link</p>
+              <button class="act-btn" onclick="loadSheets()">🔄 Load from Google Sheets</button>
+            </div>
+            <div class="tab-panel" id="spnl-xl">
+              <div class="drop-zone">
+                <input type="file" id="f-inp" accept=".xlsx,.xls,.csv" onchange="loadFile(this.files[0])">
+                <div class="dz-ico">📂</div>
+                <div class="dz-txt">Tap to choose file</div>
+                <div class="dz-sub">Supports .xlsx · .xls · .csv</div>
+              </div>
+            </div>
+            <div class="status" id="load-st"></div>
+
+            <!-- Auto-map preview — shown after loading -->
+            <div class="map-preview" id="map-preview" style="display:none;">
+              <div class="mp-title">✨ Auto-Detected Columns
+                <span style="font-size:10px;font-weight:600;color:var(--text-light);margin-left:4px;">(tap Load to confirm)</span>
+              </div>
+              <div id="map-rows"></div>
+              <div class="mp-tip">🇿🇦 Birthday extracted from SA ID — no birth date column needed</div>
+              <button class="act-btn" onclick="applyAndRender()">✅ Confirm &amp; Show Birthdays</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guide -->
+        <div class="sset">
+          <div class="shdr" onclick="toggleGuide()" style="cursor:pointer;">
+            <span style="font-size:18px;">📋</span>
+            <span class="shdr-txt">Spreadsheet Column Guide</span>
+            <span id="g-chev" style="color:rgba(255,255,255,0.6);font-size:15px;">▼</span>
+          </div>
+          <div class="g-body" id="g-body">
+            The app automatically detects your exact column names:<br><br>
+            <strong>Student:</strong> <code>StudentName</code><br>
+            <strong>Class:</strong> <code>Class</code><br>
+            <strong>Parent 1:</strong> <code>P1_Name</code> · <code>P1_ID</code> · <code>P1_Cell</code><br>
+            <strong>Parent 2:</strong> <code>P2_Name</code> · <code>P2_ID</code> · <code>P2_Cell</code><br><br>
+            Extra columns like <code>P1_Work</code>, <code>P1_Email</code>, <code>Address</code> are completely ignored.<br><br>
+            <strong>🇿🇦 SA ID magic:</strong> The app reads the birthday directly from the ID number — <code>9710...</code> → born 1997, <code>8506...</code> → born 1985. No separate date column needed at all.
+          </div>
+        </div>
+
+        <!-- App Info -->
+        <div class="sset">
+          <div class="shdr"><span style="font-size:18px;">⚙️</span><span class="shdr-txt">App Info &amp; Controls</span></div>
+          <div class="sbody">
+            <div class="info-row"><span class="info-ico">📊</span><div class="info-body"><div class="info-lbl">Data Source</div><div class="info-val" id="inf-src">Not loaded</div></div></div>
+            <div class="info-row"><span class="info-ico">👥</span><div class="info-body"><div class="info-lbl">Parents Loaded</div><div class="info-val" id="inf-count">0</div></div></div>
+            <div class="info-row"><span class="info-ico">🕐</span><div class="info-body"><div class="info-lbl">Last Updated</div><div class="info-val" id="inf-time">Never</div></div></div>
+            <div style="margin-top:16px;">
+              <label class="f-lbl">Change App Password</label>
+              <p class="f-hint" style="margin-bottom:8px;">This is the password <strong>new devices</strong> need to enter to access the app.</p>
+              <div class="pin-ch-row">
+                <input type="password" class="pin-ch-inp" id="new-app-pw" placeholder="New password" style="letter-spacing:2px;">
+                <button class="act-btn" style="width:auto;margin-top:0;padding:10px 16px;" onclick="saveAppPassword()">Save</button>
+              </div>
+            </div>
+            <div style="margin-top:16px;">
+              <label class="f-lbl">Change Settings PIN</label>
+              <div class="pin-ch-row">
+                <input type="password" inputmode="numeric" maxlength="4" class="pin-ch-inp" id="new-pin" placeholder="••••">
+                <button class="act-btn" style="width:auto;margin-top:0;padding:10px 16px;" onclick="savePin()">Save</button>
+              </div>
+            </div>
+            <button class="act-btn danger" onclick="clearData()" style="margin-top:14px;">🗑️ Clear All Data</button>
+            <button class="act-btn sec"    onclick="lockNow()"  style="margin-top:8px;">🔒 Lock Settings</button>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /pg-settings -->
+  </div><!-- /pages -->
+
+  <!-- INSTALL BANNER -->
+  <div class="install-wrap" id="install-wrap">
+    <span style="font-size:22px;">📲</span>
+    <div class="iw-t"><div class="iw-title">Install as App</div><div class="iw-sub">Add to home screen — works like a real app</div></div>
+    <button class="iw-btn" onclick="doInstall()">Install</button>
+    <button class="iw-x"   onclick="dismissInstall()">✕</button>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bnav">
+    <button class="nb active" id="nb-home"     onclick="goTo('home')">
+      <div class="nb-ico">🏠</div><div class="nb-lbl">Today</div>
+      <div class="nb-badge" id="bdg-t"></div>
+    </button>
+    <button class="nb"        id="nb-upcoming" onclick="goTo('upcoming')">
+      <div class="nb-ico">📅</div><div class="nb-lbl">Upcoming</div>
+      <div class="nb-badge" id="bdg-u"></div>
+    </button>
+    <button class="nb"        id="nb-settings" onclick="goTo('settings')">
+      <div class="nb-ico">⚙️</div><div class="nb-lbl">Settings</div>
+    </button>
+  </nav>
+
+</div><!-- /shell -->
+
+<script>
+// ════════════════════════════════════════════════
+// APP LOCK
+// ════════════════════════════════════════════════
+const DEFAULT_APP_PW = '8888';
+
+function checkAppLock_boot() {
+  if (ls('lfy-device-auth') === 'granted') {
+    document.getElementById('app-lock').style.display = 'none';
+    return;
+  }
+  document.getElementById('app-lock').style.display = 'flex';
+}
+
+function checkAppLock() {
+  const inp = document.getElementById('app-pw-inp').value;
+  const stored = ls('lfy-app-pw') || hp(DEFAULT_APP_PW);
+  if (hp(inp) === stored) {
+    lss('lfy-device-auth', 'granted');
+    const lock = document.getElementById('app-lock');
+    lock.style.transition = 'opacity .4s ease';
+    lock.style.opacity = '0';
+    setTimeout(() => { lock.style.display = 'none'; }, 420);
+  } else {
+    const err = document.getElementById('app-lock-err');
+    const inpEl = document.getElementById('app-pw-inp');
+    err.style.opacity = '1';
+    inpEl.style.borderColor = 'rgba(224,85,85,0.6)';
+    inpEl.value = '';
+    setTimeout(() => {
+      err.style.opacity = '0';
+      inpEl.style.borderColor = 'rgba(255,255,255,0.15)';
+    }, 2500);
+  }
+}
+
+function saveAppPassword() {
+  const v = document.getElementById('new-app-pw').value.trim();
+  if (v.length < 4) { alert('Password must be at least 4 characters.'); return; }
+  lss('lfy-app-pw', hp(v));
+  document.getElementById('new-app-pw').value = '';
+  alert('✅ App password updated! New devices will need this password to get in.');
+}
+
+// ════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════
+const MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// Exact column names from the school's spreadsheet — auto-detected without user needing to do anything
+const COL_MAP = {
+  student: ['StudentName','Student Name','studentname','learner','child'],
+  class:   ['Class','class','Klas'],
+  p1name:  ['P1_Name','P1Name','Parent1Name','Parent 1 Name','p1_name','P1name'],
+  p1id:    ['P1_ID','P1ID','Parent1ID','P1id','p1_id'],
+  p1cell:  ['P1_Cell','P1Cell','P_1Cell','P1cell','p1_cell','P1Phone'],
+  p2name:  ['P2_Name','P2Name','Parent2Name','Parent 2 Name','p2_name','P2name'],
+  p2id:    ['P2_ID','P2ID','Parent2ID','P2id','p2_id'],
+  p2cell:  ['P2_Cell','P2Cell','P2cell','p2_cell','P2Phone'],
+};
+
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+let S = {
+  people:  [],   // processed birthday entries
+  rawH:    [],
+  rawR:    [],
+  colIdx:  {},   // resolved column indices
+  src:     null,
+  loaded:  null,
+  pinHash: null
+};
+let pinBuf='', pinMode='enter', unlocked=false, deferred=null;
+
+// ════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  loadStorage();
+  setDate();
+  checkAppLock_boot();
+  initNotif();
+  if (S.rawR.length) { processData(); }
+  renderAll();
+  badges();
+  injectManifest();
+  regSW();
+  dailyTimer();
+  checkNotif();
+});
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferred = e;
+  if (!ls('iw-gone')) document.getElementById('install-wrap').classList.add('show');
+});
+
+function setDate() {
+  const n = new Date();
+  document.getElementById('hd-day').textContent = n.getDate();
+  document.getElementById('hd-mon').textContent = MS[n.getMonth()].toUpperCase();
+}
+
+// ════════════════════════════════════════════════
+// LOCAL STORAGE
+// ════════════════════════════════════════════════
+const ls  = k    => localStorage.getItem(k);
+const lss = (k,v)=> localStorage.setItem(k, v);
+const lsr = k    => localStorage.removeItem(k);
+
+function loadStorage() {
+  try {
+    const d = ls('lfy3');
+    if (d) { const p = JSON.parse(d); S = {...S, ...p}; }
+  } catch {}
+  const u = ls('lfy3-url');
+  if (u) document.getElementById('gs-url').value = u;
+}
+function saveStorage() { lss('lfy3', JSON.stringify({...S, people:[], rawR:S.rawR, rawH:S.rawH, colIdx:S.colIdx, src:S.src, loaded:S.loaded, pinHash:S.pinHash})); }
+
+// ════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════
+const PAGE_TITLES = { home:'Birthday Reminder', upcoming:'Upcoming Birthdays', settings:'Settings' };
+let currentPage = 'home';
+let transitioning = false;
+const PAGE_ORDER = ['home','upcoming','settings'];
+
+function goTo(pg) {
+  if (pg === currentPage || transitioning) return;
+  transitioning = true;
+
+  const fromIdx = PAGE_ORDER.indexOf(currentPage);
+  const toIdx   = PAGE_ORDER.indexOf(pg);
+  const goRight = toIdx > fromIdx;
+
+  const outEl = document.getElementById('pg-' + currentPage);
+  const inEl  = document.getElementById('pg-' + pg);
+
+  // Animate out
+  outEl.classList.add(goRight ? 'slide-out-left' : 'slide-out-right');
+
+  // Animate in
+  inEl.classList.add(goRight ? 'slide-in-right' : 'slide-in-left');
+  inEl.classList.add('active');
+
+  // Cleanup after animation
+  setTimeout(() => {
+    outEl.classList.remove('active','slide-out-left','slide-out-right');
+    inEl.classList.remove('slide-in-right','slide-in-left');
+    transitioning = false;
+  }, 340);
+
+  PAGE_ORDER.forEach(p =>
+    document.getElementById('nb-'+p).classList.toggle('active', p===pg)
+  );
+  document.getElementById('page-title').textContent = PAGE_TITLES[pg];
+  currentPage = pg;
+  if (pg==='settings' && !unlocked) showPin();
+}
+
+// ════════════════════════════════════════════════
+// PIN
+// ════════════════════════════════════════════════
+function showPin() {
+  document.getElementById('pin-ov').classList.remove('gone');
+  pinBuf=''; updateDots();
+  if (!S.pinHash) {
+    pinMode='create';
+    document.getElementById('pin-title').textContent = 'Create a PIN';
+    document.getElementById('pin-sub').textContent   = 'Choose a 4-digit PIN to protect settings';
+  } else {
+    pinMode='enter';
+    document.getElementById('pin-title').textContent = 'Settings PIN';
+    document.getElementById('pin-sub').textContent   = 'Enter your 4-digit PIN';
+  }
+}
+function pk(d) {
+  if (pinBuf.length>=4) return;
+  pinBuf+=d; updateDots();
+  if (pinBuf.length===4) setTimeout(checkPin,140);
+}
+function pdel() { pinBuf=pinBuf.slice(0,-1); updateDots(); }
+function updateDots() {
+  for (let i=0;i<4;i++) {
+    const el = document.getElementById('pd'+i);
+    el.classList.toggle('on', i<pinBuf.length);
+    el.classList.remove('bad');
+  }
+}
+function checkPin() {
+  if (pinMode==='create') { S.pinHash=hp(pinBuf); saveStorage(); unlock(); return; }
+  if (hp(pinBuf)===S.pinHash) { unlock(); return; }
+  for (let i=0;i<4;i++) document.getElementById('pd'+i).classList.add('bad');
+  const e=document.getElementById('pin-err'); e.classList.add('show');
+  document.getElementById('pin-dots').classList.add('shake');
+  setTimeout(()=>{
+    for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.remove('bad');
+    e.classList.remove('show');
+    document.getElementById('pin-dots').classList.remove('shake');
+    pinBuf=''; updateDots();
+  }, 1100);
+}
+function unlock() {
+  unlocked=true;
+  document.getElementById('pin-ov').classList.add('gone');
+  document.getElementById('set-content').style.display='block';
+  updateInfo();
+}
+function lockNow() {
+  unlocked=false;
+  document.getElementById('set-content').style.display='none';
+  document.getElementById('pin-ov').classList.remove('gone');
+  pinBuf=''; updateDots(); pinMode='enter';
+  document.getElementById('pin-title').textContent='Settings PIN';
+  document.getElementById('pin-sub').textContent='Enter your 4-digit PIN';
+}
+function savePin() {
+  const v = document.getElementById('new-pin').value.trim();
+  if (v.length!==4||isNaN(v)) { alert('Please enter exactly 4 digits.'); return; }
+  S.pinHash=hp(v); saveStorage();
+  document.getElementById('new-pin').value='';
+  alert('✅ PIN updated successfully!');
+}
+function hp(p) {
+  let h=0;
+  for(let i=0;i<p.length;i++) h=Math.imul(31,h)+p.charCodeAt(i)|0;
+  return String(h>>>0);
+}
+
+// ════════════════════════════════════════════════
+// SETTINGS UI
+// ════════════════════════════════════════════════
+function stab(t) {
+  ['gs','xl'].forEach(x => {
+    document.getElementById('stab-'+x).classList.toggle('active',x===t);
+    document.getElementById('spnl-'+x).classList.toggle('active',x===t);
+  });
+}
+function toggleGuide() {
+  const b=document.getElementById('g-body'), c=document.getElementById('g-chev');
+  const o=b.classList.contains('open');
+  b.classList.toggle('open',!o); c.textContent=o?'▼':'▲';
+}
+function updateInfo() {
+  document.getElementById('inf-src').textContent   = S.src||'No data loaded';
+  document.getElementById('inf-count').textContent = S.people.length+' people loaded ('+S.rawR.length+' rows)';
+  document.getElementById('inf-time').textContent  = S.loaded ? new Date(S.loaded).toLocaleString() : 'Never';
+}
+
+// ════════════════════════════════════════════════
+// LOADING — GOOGLE SHEETS
+// ════════════════════════════════════════════════
+async function loadSheets() {
+  const url = document.getElementById('gs-url').value.trim();
+  if (!url) { showSt('err','Please paste your Google Sheets CSV URL.'); return; }
+  showSt('load','Fetching data from Google Sheets…');
+  try {
+    let text;
+    try {
+      const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+      if (!r.ok) throw 0;
+      text = await r.text();
+    } catch {
+      const r2 = await fetch(url);
+      if (!r2.ok) throw new Error('Could not load spreadsheet. Check URL & ensure it is published as CSV.');
+      text = await r2.text();
+    }
+    const rows = csvParse(text);
+    if (rows.length<2) throw new Error('Spreadsheet appears empty.');
+    S.rawH = rows[0].map(String);
+    S.rawR = rows.slice(1).filter(r=>r.some(c=>String(c).trim()!==''));
+    S.src  = 'Google Sheets';
+    lss('lfy3-url', url);
+    detectColumns();
+    showMapPreview();
+    showSt('ok',`Loaded ${S.rawR.length} rows — check column mapping below then tap Confirm.`);
+  } catch(e) { showSt('err', e.message||'Failed. Check your URL and try again.'); }
+}
+
+// ════════════════════════════════════════════════
+// LOADING — FILE
+// ════════════════════════════════════════════════
+function loadFile(file) {
+  if (!file) return;
+  showSt('load',`Reading ${file.name}…`);
+  const rd = new FileReader();
+  rd.onload = e => {
+    try {
+      let rows;
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        rows = csvParse(e.target.result);
+      } else {
+        const wb = XLSX.read(e.target.result,{type:'binary'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:''}).filter(r=>r.some(c=>c!==''));
+      }
+      if (!rows||rows.length<2) throw new Error('File appears empty or invalid.');
+      S.rawH = rows[0].map(String);
+      S.rawR = rows.slice(1).filter(r=>r.some(c=>String(c).trim()!==''));
+      S.src  = file.name;
+      detectColumns();
+      showMapPreview();
+      showSt('ok',`Loaded ${S.rawR.length} rows — check column mapping below then tap Confirm.`);
+    } catch(e) { showSt('err', e.message||'Could not read file.'); }
+  };
+  file.name.toLowerCase().endsWith('.csv') ? rd.readAsText(file) : rd.readAsBinaryString(file);
+}
+
+// ════════════════════════════════════════════════
+// COLUMN AUTO-DETECTION
+// ════════════════════════════════════════════════
+function detectColumns() {
+  S.colIdx = {};
+  const headers = S.rawH;
+  for (const [key, candidates] of Object.entries(COL_MAP)) {
+    // Try exact match first, then case-insensitive
+    let idx = headers.findIndex(h => candidates.includes(h));
+    if (idx < 0) idx = headers.findIndex(h => candidates.map(c=>c.toLowerCase()).includes(h.toLowerCase()));
+    S.colIdx[key] = idx; // -1 = not found
+  }
+}
+
+function showMapPreview() {
+  const mp = document.getElementById('map-preview');
+  const rows = document.getElementById('map-rows');
+  const fields = [
+    { key:'student', label:'👦 Student Name' },
+    { key:'p1name',  label:'👤 Parent 1 Name' },
+    { key:'p1id',    label:'🪪 Parent 1 SA ID' },
+    { key:'p1cell',  label:'📱 Parent 1 Phone' },
+    { key:'p2name',  label:'👤 Parent 2 Name' },
+    { key:'p2id',    label:'🪪 Parent 2 SA ID' },
+    { key:'p2cell',  label:'📱 Parent 2 Phone' },
+  ];
+  rows.innerHTML = fields.map(f => {
+    const idx = S.colIdx[f.key];
+    const found = idx >= 0;
+    const val = found ? `${String.fromCharCode(65+idx)}: ${S.rawH[idx]}` : '— Not found —';
+    return `<div class="mp-row">
+      <span class="mp-lbl">${f.label}</span>
+      <span class="mp-val ${found?'':'miss'}">${val}</span>
+    </div>`;
+  }).join('');
+  mp.style.display = 'block';
+}
+
+// ════════════════════════════════════════════════
+// PROCESS DATA
+// ════════════════════════════════════════════════
+function applyAndRender() {
+  processData();
+  saveStorage();
+  updateInfo();
+  renderAll();
+  badges();
+  checkNotif();
+  showSt('ok', `✅ ${S.people.length} birthdays loaded from ${S.rawR.length} students!`);
+}
+
+function processData() {
+  const ci = S.colIdx;
+  const get = (row, key) => ci[key]>=0 ? String(row[ci[key]]||'').trim() : '';
+
+  // First pass — collect all students per parent ID
+  const parentMap = {}; // id -> entry
+
+  S.rawR.forEach(row => {
+    const student = get(row,'student');
+    const cls     = get(row,'class');
+
+    // Parent 1
+    const p1name = get(row,'p1name');
+    const p1id   = get(row,'p1id').replace(/\s/g,'');
+    const p1cell = get(row,'p1cell');
+    const p1bd   = saIdDate(p1id);
+    if (p1name && p1bd && p1id) {
+      if (!parentMap[p1id]) {
+        parentMap[p1id] = { name:p1name, id:p1id, phone:p1cell, students:[], bdate:p1bd, parentNum:1 };
+      }
+      if (student && !parentMap[p1id].students.includes(student)) {
+        parentMap[p1id].students.push(student + (cls ? ` (${cls})` : ''));
+      }
+    }
+
+    // Parent 2
+    const p2name = get(row,'p2name');
+    const p2id   = get(row,'p2id').replace(/\s/g,'');
+    const p2cell = get(row,'p2cell');
+    const p2bd   = saIdDate(p2id);
+    if (p2name && p2bd && p2id) {
+      if (!parentMap[p2id]) {
+        parentMap[p2id] = { name:p2name, id:p2id, phone:p2cell, students:[], bdate:p2bd, parentNum:2 };
+      }
+      if (student && !parentMap[p2id].students.includes(student)) {
+        parentMap[p2id].students.push(student + (cls ? ` (${cls})` : ''));
+      }
+    }
+  });
+
+  // Convert map to array, add student/cls helpers for display
+  S.people = Object.values(parentMap).map(p => ({
+    ...p,
+    student: p.students.join(' & '),
+    cls: '' // cls is now embedded in the students string
+  }));
+  S.loaded = new Date().toISOString();
+}
+
+// ════════════════════════════════════════════════
+// SA ID → BIRTHDAY EXTRACTOR 🇿🇦
+// ════════════════════════════════════════════════
+function saIdDate(idStr) {
+  if (!idStr) return null;
+  const id = String(idStr).replace(/\D/g,'');
+  if (id.length < 6) return null;
+  const yy = +id.substring(0,2);
+  const mm = +id.substring(2,4);
+  const dd = +id.substring(4,6);
+  if (mm<1||mm>12||dd<1||dd>31) return null;
+  const currentYear = new Date().getFullYear();
+  const year = (2000+yy) > currentYear ? 1900+yy : 2000+yy;
+  return { day:dd, month:mm, year };
+}
+
+// ════════════════════════════════════════════════
+// DATE HELPERS
+// ════════════════════════════════════════════════
+const WDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function weekdayOf(month, day) {
+  const now = new Date();
+  // Use next occurrence of this birthday
+  let yr = now.getFullYear();
+  const bd = new Date(yr, month-1, day);
+  if (bd < now) bd.setFullYear(yr+1);
+  return WDAYS[bd.getDay()];
+}
+
+function daysUntil(month, day) {
+  const t = new Date();
+  const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  let bd = new Date(t.getFullYear(), month-1, day);
+  if (bd < today) bd = new Date(t.getFullYear()+1, month-1, day);
+  return Math.round((bd-today)/86400000);
+}
+function isToday(m,d) {
+  const n=new Date(); return n.getMonth()+1===m && n.getDate()===d;
+}
+
+// ════════════════════════════════════════════════
+// FAITH QUOTES
+// ════════════════════════════════════════════════
+const QUOTES = [
+  { text: "Children are a gift from the Lord; they are a reward from Him.", ref: "Psalm 127:3" },
+  { text: "Train up a child in the way he should go; even when he is old he will not depart from it.", ref: "Proverbs 22:6" },
+  { text: "Let the little children come to me, and do not hinder them, for the kingdom of heaven belongs to such as these.", ref: "Matthew 19:14" },
+  { text: "The Lord bless you and keep you; the Lord make His face shine on you and be gracious to you.", ref: "Numbers 6:24-25" },
+  { text: "I can do all things through Christ who strengthens me.", ref: "Philippians 4:13" },
+  { text: "Give thanks to the Lord, for He is good; His love endures forever.", ref: "Psalm 107:1" },
+  { text: "Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you.", ref: "Joshua 1:9" },
+  { text: "The joy of the Lord is your strength.", ref: "Nehemiah 8:10" },
+  { text: "Cast all your anxiety on Him because He cares for you.", ref: "1 Peter 5:7" },
+  { text: "This is the day the Lord has made; let us rejoice and be glad in it.", ref: "Psalm 118:24" },
+  { text: "Love one another as I have loved you.", ref: "John 15:12" },
+  { text: "She is clothed with strength and dignity; she can laugh at the days to come.", ref: "Proverbs 31:25" },
+];
+
+function getDailyQuote() {
+  const day = new Date().getDate() + new Date().getMonth();
+  return QUOTES[day % QUOTES.length];
+}
+
+function formatFullDate() {
+  const n = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return `${days[n.getDay()]}, ${n.getDate()} ${months[n.getMonth()]} ${n.getFullYear()}`;
+}
+
+// ════════════════════════════════════════════════
+// RENDER — TODAY
+// ════════════════════════════════════════════════
+function renderHome() {
+  const out = document.getElementById('home-out');
+  const q = { text: "Train up a child in the way he should go; even when he is old he will not depart from it.", ref: "Proverbs 22:6" };
+
+  // Quote card — always shown at top
+  const quoteCard = `
+    <div style="background:linear-gradient(135deg,var(--teal-deep),var(--teal-mid));border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:-10px;right:-10px;font-size:70px;opacity:0.08;transform:rotate(-10deg);">✝</div>
+      <div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--teal-light);margin-bottom:8px;">🌿 The Farmyard Way</div>
+      <div style="font-size:13px;font-weight:700;color:white;line-height:1.65;font-style:italic;margin-bottom:8px;">"${q.text}"</div>
+      <div style="font-size:11px;font-weight:800;color:var(--gold-light);">— ${q.ref}</div>
+    </div>`;
+
+  // Date + stats bar
+  const upcoming7 = S.people.filter(p => p.bdate.month === new Date().getMonth()+1 && p.bdate.day >= new Date().getDate()).length;
+  const statsBar = S.people.length ? `
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <div style="flex:1;background:white;border-radius:12px;padding:12px 10px;text-align:center;border:1.5px solid rgba(3,78,81,0.07);box-shadow:0 2px 8px rgba(3,78,81,0.05);">
+        <div style="font-size:10px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:1px;">Date</div>
+        <div style="font-size:11px;font-weight:900;color:var(--teal-deep);margin-top:3px;">${formatFullDate()}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <div style="flex:1;background:white;border-radius:12px;padding:12px 10px;text-align:center;border:1.5px solid rgba(3,78,81,0.07);box-shadow:0 2px 8px rgba(3,78,81,0.05);">
+        <div style="font-size:9px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:1px;">This Month</div>
+        <div style="font-size:22px;font-weight:900;color:var(--teal-mid);line-height:1;">${upcoming7}</div>
+        <div style="font-size:9px;color:var(--text-light);">left this month</div>
+      </div>
+    </div>` : '';
+
+  if (!S.people.length) {
+    out.innerHTML = quoteCard + emptyEl('🌻','Welcome to LFY Birthday Reminder','Go to Settings to connect your Google Sheets or upload your Excel file.',true);
+    return;
+  }
+
+  const today = S.people.filter(p=>isToday(p.bdate.month,p.bdate.day));
+  let h = quoteCard + statsBar + `<div class="sec-hdr">
+    <div class="sec-ico si-t">🎂</div>
+    <div class="sec-meta">
+      <div class="sec-title">Today's Birthdays</div>
+      <div class="sec-sub">${today.length===0?'No birthdays today':today.length+' '+(today.length===1?'birthday':'birthdays')+' today'}</div>
+    </div>
+  </div>`;
+
+  if (!today.length) {
+    h += `<div class="empty">
+      <div class="empty-ico">🌞</div>
+      <div class="empty-title">No birthdays today!</div>
+      <div class="empty-sub">Have a lovely day — enjoy every moment with your Little Farmyard family. 🌿</div>
+    </div>`;
+  } else {
+    today.forEach((p,i) => { h += todayCard(p,i); });
+  }
+  out.innerHTML = h;
+}
+
+function todayCard(p, i) {
+  const age    = p.bdate.year ? new Date().getFullYear()-p.bdate.year : null;
+  const ageStr = age ? ` · Turns ${age} today! 🎉` : '';
+  const waMsg  = encodeURIComponent(`🎂 Happy Birthday ${p.name}! 🎉\n\nWishing you a wonderful day from all of us at Little Farmyard! 🌿`);
+  const waHref = p.phone ? `https://wa.me/${cleanPhone(p.phone)}?text=${waMsg}` : '';
+
+  return `<div class="tcard" style="animation-delay:${i*.08}s;">
+    <div class="tc-badge">🎉 Today's Birthday</div>
+    <div class="tc-name">${esc(p.name)}</div>
+    <div class="tc-ctx">
+      ${p.student?`Parent of <strong>${esc(p.student)}</strong>`:''}${p.cls?` · <em>${esc(p.cls)}</em> class`:''}${ageStr}
+    </div>
+    <div class="chips">
+      <div class="chip"><span class="chip-ico">🎂</span><div><div class="chip-lbl">Birthday</div><div class="chip-val">${weekdayOf(p.bdate.month,p.bdate.day)}, ${p.bdate.day} ${MF[p.bdate.month-1]}</div></div></div>
+      ${p.phone?`<div class="chip"><span class="chip-ico">📱</span><div><div class="chip-lbl">Phone</div><div class="chip-val">${esc(p.phone)}</div></div></div>`:''}
+      ${p.id?`<div class="chip"><span class="chip-ico">🪪</span><div><div class="chip-lbl">ID</div><div class="chip-val">${esc(p.id)}</div></div></div>`:''}
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════
+// DETAIL MODAL
+// ════════════════════════════════════════════════
+function showDetail(idx) {
+  const p = S.people[idx];
+  if (!p) return;
+  const age    = p.bdate.year ? new Date().getFullYear() - p.bdate.year : null;
+  const days   = daysUntil(p.bdate.month, p.bdate.day);
+  const isToday_ = days === 0;
+  const waMsg  = encodeURIComponent(`🎂 Happy Birthday ${p.name}! 🎉\n\nWishing you a wonderful day from all of us at Little Farmyard! 🌿`);
+  const waHref = p.phone ? `https://wa.me/${cleanPhone(p.phone)}?text=${waMsg}` : '';
+
+  const html = `
+    <div id="detail-modal" onclick="closeDetail(event)" style="
+      position:fixed;inset:0;z-index:100;
+      background:rgba(3,78,81,0.55);
+      display:flex;align-items:flex-end;justify-content:center;
+      animation:fadeIn .2s ease;">
+      <div onclick="event.stopPropagation()" style="
+        background:var(--cream);border-radius:24px 24px 0 0;
+        width:100%;max-width:480px;
+        padding:24px 22px 40px;
+        max-height:88vh;overflow-y:auto;
+        animation:slideUp .25s ease;">
+
+        <!-- Handle bar -->
+        <div style="width:40px;height:4px;background:rgba(3,78,81,0.15);border-radius:2px;margin:0 auto 20px;"></div>
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <div style="width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,var(--teal-bright),var(--teal-deep));display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">🎂</div>
+          <div>
+            <div style="font-size:21px;font-weight:900;color:var(--brown-dark);font-family:'Lora',serif;">${esc(p.name)}</div>
+            <div style="font-size:12px;font-weight:700;color:var(--text-light);">${p.parentNum===2?'Parent 2':'Parent 1'}${p.student?' · Parent of '+esc(p.student):''}</div>
+          </div>
+        </div>
+
+        <!-- Detail rows -->
+        <div style="background:white;border-radius:16px;border:1.5px solid rgba(3,78,81,0.07);overflow:hidden;margin-bottom:16px;">
+          ${detailRow('🎂','Birthday',`${weekdayOf(p.bdate.month,p.bdate.day)}, ${p.bdate.day} ${MF[p.bdate.month-1]} ${p.bdate.year||''}`)}
+          ${age ? detailRow('🎉','Age this year', `Turns ${age}${isToday_?' today! 🎊':' this year'}`) : ''}
+          ${!isToday_ ? detailRow('⏳','Days away', `${days} ${days===1?'day':'days'} to go`) : ''}
+          ${p.student ? detailRow('👦','Student', esc(p.student)) : ''}
+          ${p.cls     ? detailRow('📚','Class',   esc(p.cls))     : ''}
+          ${p.phone   ? detailRowCopy('📱','Phone', esc(p.phone), p.phone) : ''}
+          ${p.id      ? detailRow('🪪','SA ID',   esc(p.id))      : ''}
+        </div>
+
+        <!-- Close button -->
+        <button onclick="document.getElementById('detail-modal').remove()" style="
+          width:100%;padding:13px;background:transparent;
+          border:2px solid rgba(3,78,81,0.12);border-radius:12px;
+          font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;
+          color:var(--text-mid);cursor:pointer;">
+          Close
+        </button>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function detailRow(ico, label, val) {
+  return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(3,78,81,0.06);">
+    <span style="font-size:18px;">${ico}</span>
+    <div>
+      <div style="font-size:10px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;">${label}</div>
+      <div style="font-size:14px;font-weight:800;color:var(--text-dark);">${val}</div>
+    </div>
+  </div>`;
+}
+
+function detailRowCopy(ico, label, val, rawVal) {
+  return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(3,78,81,0.06);">
+    <span style="font-size:18px;">${ico}</span>
+    <div style="flex:1;">
+      <div style="font-size:10px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.5px;">${label}</div>
+      <div style="font-size:14px;font-weight:800;color:var(--text-dark);">${val}</div>
+    </div>
+    <button onclick="copyPhone('${rawVal.replace(/'/g,"\\'")}', this)" style="
+      background:var(--teal-pale);border:1.5px solid var(--teal-light);
+      color:var(--teal-deep);border-radius:8px;padding:6px 12px;
+      font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;
+      cursor:pointer;flex-shrink:0;transition:all .2s;">
+      📋 Copy
+    </button>
+  </div>`;
+}
+
+function copyPhone(phone, btn) {
+  navigator.clipboard.writeText(phone).then(() => {
+    btn.textContent = '✅ Copied!';
+    btn.style.background = 'rgba(47,172,153,0.15)';
+    btn.style.borderColor = 'var(--teal-bright)';
+    btn.style.color = 'var(--teal-deep)';
+    setTimeout(() => {
+      btn.textContent = '📋 Copy';
+      btn.style.background = 'var(--teal-pale)';
+      btn.style.borderColor = 'var(--teal-light)';
+    }, 2000);
+  }).catch(() => {
+    // Fallback for older phones
+    const el = document.createElement('textarea');
+    el.value = phone;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+  });
+}
+
+function closeDetail(e) {
+  const m = document.getElementById('detail-modal');
+  if (m && e.target === m) m.remove();
+}
+
+// ════════════════════════════════════════════════
+// RENDER — UPCOMING (full current month)
+// ════════════════════════════════════════════════
+function weekStrip() {
+  const now = new Date();
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const bdayDays = new Set(
+    S.people
+      .filter(p => p.bdate.month === now.getMonth()+1)
+      .map(p => p.bdate.day)
+  );
+  let h = '<div class="week-strip">';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now); d.setDate(now.getDate() + i);
+    const isT = i === 0;
+    const hasBday = bdayDays.has(d.getDate()) && d.getMonth() === now.getMonth();
+    h += `<div class="wday${isT?' is-today':''}${hasBday?' has-bday':''}">
+      <div class="wday-name">${DAYS[d.getDay()]}</div>
+      <div class="wday-num">${d.getDate()}</div>
+      <div class="wday-dot"></div>
+    </div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+function renderUpcoming() {
+  const out = document.getElementById('upcoming-out');
+  if (!S.people.length) {
+    out.innerHTML = emptyEl('📅','No data loaded yet','Set up your spreadsheet in Settings first.',true);
+    return;
+  }
+  const now   = new Date();
+  const month = now.getMonth() + 1;
+  const today = now.getDate();
+  const monthName = MF[month-1];
+
+  // All birthdays in this calendar month, sorted by day
+  const list = S.people
+    .filter(p => p.bdate.month === month)
+    .sort((a,b) => a.bdate.day - b.bdate.day);
+
+  // Split into past/today and upcoming
+  const remaining = list.filter(p => p.bdate.day >= today);
+  const past      = list.filter(p => p.bdate.day < today);
+
+  let h = weekStrip();
+  h += `<div class="sec-hdr">
+    <div class="sec-ico si-u">📅</div>
+    <div class="sec-meta">
+      <div class="sec-title">${monthName} Birthdays</div>
+      <div class="sec-sub">${list.length} ${list.length===1?'birthday':'birthdays'} this month · tap a card for details</div>
+    </div>
+  </div>`;
+
+  if (!list.length) {
+    h += emptyEl('🎊','No birthdays in '+monthName,'Enjoy a quiet month! 🌿',false);
+  } else {
+    if (remaining.length) {
+      h += `<div style="font-size:11px;font-weight:800;color:var(--teal-mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;padding-left:4px;">Still to come</div>`;
+      remaining.forEach((p,i) => { h += upcomingCard(p, i); });
+    }
+    if (past.length) {
+      h += `<div style="font-size:11px;font-weight:800;color:var(--text-light);letter-spacing:1px;text-transform:uppercase;margin:16px 0 8px;padding-left:4px;">Earlier this month</div>`;
+      past.forEach((p,i) => { h += upcomingCard(p, i, true); });
+    }
+  }
+  out.innerHTML = h;
+}
+
+function upcomingCard(p, i, past=false) {
+  const days  = daysUntil(p.bdate.month, p.bdate.day);
+  const isToday_ = isToday(p.bdate.month, p.bdate.day);
+  const idx   = S.people.indexOf(p);
+  const sub   = [
+    p.student ? `👦 ${esc(p.student)}` : '',
+    p.cls     ? `📚 ${esc(p.cls)}`     : '',
+  ].filter(Boolean).join(' · ');
+  const daysChip = isToday_
+    ? `<div class="uc-days" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24);"><span class="uc-dn" style="color:white;">🎂</span><span class="uc-dl" style="color:rgba(255,255,255,0.8);">Today!</span></div>`
+    : past
+    ? `<div class="uc-days" style="background:rgba(0,0,0,0.04);"><span class="uc-dn" style="color:var(--text-light);font-size:13px;">✓</span><span class="uc-dl">done</span></div>`
+    : `<div class="uc-days"><span class="uc-dn">${days}</span><span class="uc-dl">${days===1?'day':'days'}</span></div>`;
+
+  return `<div class="ucard" style="animation-delay:${i*.05}s;${past?'opacity:0.55;':''}cursor:pointer;" onclick="haptic();showDetail(${idx})">
+    <div class="uc-date" style="${past?'background:rgba(3,78,81,0.3);':''}">
+      <div class="uc-d">${p.bdate.day}</div>
+      <div class="uc-m">${MS[p.bdate.month-1]}</div>
+      <div style="font-size:9px;font-weight:800;color:rgba(255,255,255,0.8);letter-spacing:0.3px;margin-top:1px;">${weekdayOf(p.bdate.month,p.bdate.day).slice(0,3).toUpperCase()}</div>
+    </div>
+    <div class="uc-body">
+      <div class="uc-name">${esc(p.name)}</div>
+      <div class="uc-sub">${sub||'&nbsp;'}</div>
+    </div>
+    ${daysChip}
+  </div>`;
+}
+
+function renderAll() { renderHome(); renderUpcoming(); }
+
+// ════════════════════════════════════════════════
+// BADGES
+// ════════════════════════════════════════════════
+function badges() {
+  const tc = S.people.filter(p=>isToday(p.bdate.month,p.bdate.day)).length;
+  const uc = S.people.filter(p => p.bdate.month === new Date().getMonth()+1 && p.bdate.day >= new Date().getDate()).length;
+  const bt=document.getElementById('bdg-t'), bu=document.getElementById('bdg-u');
+  bt.textContent=tc; bt.classList.toggle('show',tc>0);
+  bu.textContent=uc; bu.classList.toggle('show',uc>0);
+}
+
+// ════════════════════════════════════════════════
+// NOTIFICATIONS
+// ════════════════════════════════════════════════
+function initNotif() {
+  if (!('Notification' in window)) { document.getElementById('nstrip').style.display='none'; return; }
+  if (Notification.permission==='granted') setNotifOn();
+}
+async function reqNotif() {
+  if (Notification.permission==='granted') return;
+  const p = await Notification.requestPermission();
+  if (p==='granted') {
+    setNotifOn();
+    new Notification('🌿 Little Farmyard Birthdays',{body:'Notifications enabled! 🎉',icon:'https://littlefarmyard.co.za/wp-content/uploads/2022/07/Logo.png'});
+  }
+}
+function setNotifOn() {
+  const s=document.getElementById('nstrip');
+  s.classList.add('on'); s.onclick=null;
+  document.getElementById('ns-txt').textContent='🎉 Birthday notifications are ON';
+  document.getElementById('ns-btn').textContent='✓ ON';
+  setTimeout(() => {
+    s.style.transition='max-height .4s ease, opacity .4s ease, padding .4s ease';
+    s.style.maxHeight='0'; s.style.opacity='0'; s.style.padding='0';
+    setTimeout(() => { s.style.display='none'; }, 420);
+  }, 1500);
+}
+function checkNotif() {
+  if (Notification.permission!=='granted'||!S.people.length) return;
+  const dk=new Date().toDateString();
+  if (ls('lfy3-nk')===dk) return;
+  const td=S.people.filter(p=>isToday(p.bdate.month,p.bdate.day));
+  if (!td.length) return;
+  lss('lfy3-nk',dk);
+  td.forEach(p=>{
+    const age=p.bdate.year?` — turns ${new Date().getFullYear()-p.bdate.year} today!`:'';
+    new Notification(`🎂 ${p.name}'s Birthday Today!`,{
+      body:`${p.name}${age}${p.student?' · Parent of '+p.student:''}${p.phone?' · 📱 '+p.phone:''}`,
+      icon:'https://littlefarmyard.co.za/wp-content/uploads/2022/07/Logo.png',
+      tag:`bday-${p.name}-${dk}`
+    });
+  });
+}
+function dailyTimer() {
+  const n=new Date(),next=new Date(n);
+  next.setHours(8,0,0,0); if(n>=next) next.setDate(next.getDate()+1);
+  setTimeout(()=>{ checkNotif(); dailyTimer(); }, next-n);
+}
+
+// ════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════
+function csvParse(txt) {
+  return txt.trim().split(/\r?\n/).map(line=>{
+    const row=[]; let cell='',q=false;
+    for(const c of line){
+      if(c==='"'){q=!q;}
+      else if(c===','&&!q){row.push(cell.trim());cell='';}
+      else{cell+=c;}
+    }
+    row.push(cell.trim()); return row;
+  });
+}
+function cleanPhone(p) {
+  let n=String(p).replace(/[\s\-]/g,'');
+  if(n.startsWith('0')) n='27'+n.slice(1);
+  return n;
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function emptyEl(ico,title,sub,btn) {
+  return `<div class="empty" style="margin-top:24px;">
+    <div class="empty-ico">${ico}</div>
+    <div class="empty-title">${title}</div>
+    <div class="empty-sub">${sub}</div>
+    ${btn?`<button class="go-btn" onclick="goTo('settings')">⚙️ Open Settings</button>`:''}
+  </div>`;
+}
+function showSt(type,msg) {
+  const el=document.getElementById('load-st');
+  const ico=type==='load'?'<span class="spinner"></span>':type==='ok'?'✅':'❌';
+  el.className=`status ${type==='load'?'load':type==='ok'?'ok':'err'} show`;
+  el.innerHTML=`<span>${ico}</span><span>${msg}</span>`;
+}
+function clearData() {
+  if(!confirm('Clear all birthday data?')) return;
+  S.people=[];S.rawH=[];S.rawR=[];S.src=null;S.loaded=null;S.colIdx={};
+  saveStorage(); lsr('lfy3-url');
+  document.getElementById('map-preview').style.display='none';
+  updateInfo(); renderAll(); badges();
+  showSt('ok','All data cleared.');
+}
+
+// ════════════════════════════════════════════════
+// PWA
+// ════════════════════════════════════════════════
+function injectManifest() {
+  const m={name:'Little Farmyard Birthday Reminder',short_name:'LFY Birthdays',start_url:'./',display:'standalone',background_color:'#fdf8f2',theme_color:'#034e51',orientation:'portrait',icons:[{src:'https://littlefarmyard.co.za/wp-content/uploads/2022/07/Logo.png',sizes:'512x512',type:'image/png'}]};
+  const b=new Blob([JSON.stringify(m)],{type:'application/manifest+json'});
+  document.getElementById('manifest-link').href=URL.createObjectURL(b);
+}
+function regSW() {
+  if(!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+function doInstall() {
+  if(!deferred) return;
+  deferred.prompt();
+  deferred.userChoice.then(()=>{ deferred=null; document.getElementById('install-wrap').classList.remove('show'); });
+}
+function dismissInstall() {
+  lss('iw-gone','1');
+  document.getElementById('install-wrap').classList.remove('show');
+}
+// ════════════════════════════════════════════════
+// HAPTIC FEEDBACK
+// ════════════════════════════════════════════════
+function haptic(ms=40) {
+  if (navigator.vibrate) navigator.vibrate(ms);
+}
+
+// ════════════════════════════════════════════════
+// SWIPE GESTURES
+// ════════════════════════════════════════════════
+(function initSwipe() {
+  const shell = document.querySelector('.shell');
+  let startX = 0, startY = 0, startT = 0;
+
+  shell.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    startT = Date.now();
+  }, {passive: true});
+
+  shell.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    const dt = Date.now() - startT;
+
+    // Must be fast enough, horizontal enough, and long enough
+    if (dt > 400) return;
+    if (Math.abs(dx) < 50) return;
+    if (Math.abs(dy) > Math.abs(dx) * 0.8) return;
+
+    const idx = PAGE_ORDER.indexOf(currentPage);
+    if (dx < 0 && idx < PAGE_ORDER.length - 1) {
+      haptic(30);
+      goTo(PAGE_ORDER[idx + 1]); // swipe left → next page
+    } else if (dx > 0 && idx > 0) {
+      haptic(30);
+      goTo(PAGE_ORDER[idx - 1]); // swipe right → prev page
+    }
+  }, {passive: true});
+})();
+</script>
+</body>
+</html>
