@@ -3,7 +3,7 @@ name: Birthday Check
 on:
   schedule:
     - cron: '0 6 * * *'  # 6am UTC = 8am South Africa time
-  workflow_dispatch:      # Allows us to test it MANUALLY right now!
+  workflow_dispatch:      # allows manual trigger from GitHub
 
 jobs:
   check-birthdays:
@@ -24,6 +24,9 @@ jobs:
           function fetchURL(url) {
             return new Promise((resolve, reject) => {
               https.get(url, (res) => {
+                if (res.statusCode === 301 || res.statusCode === 302) {
+                  return fetchURL(res.headers.location).then(resolve).catch(reject);
+                }
                 let data = '';
                 res.on('data', chunk => data += chunk);
                 res.on('end', () => resolve(data));
@@ -46,7 +49,7 @@ jobs:
 
           function findCol(headers, names) {
             for (const n of names) {
-              const i = headers.findIndex(h => h.toLowerCase() === n.toLowerCase());
+              const i = headers.findIndex(h => h.trim().toLowerCase() === n.toLowerCase());
               if (i >= 0) return i;
             }
             return -1;
@@ -56,7 +59,7 @@ jobs:
             if (!id || id.length < 6) return null;
             const digits = id.replace(/\D/g, '');
             if (digits.length < 6) return null;
-            let yy = parseInt(digits.substring(0, 2));
+            const yy = parseInt(digits.substring(0, 2));
             const mm = parseInt(digits.substring(2, 4));
             const dd = parseInt(digits.substring(4, 6));
             if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
@@ -74,7 +77,6 @@ jobs:
                 contents: { en: body },
                 web_url: "https://lfy-birthday-app.vercel.app"
               });
-
               const options = {
                 hostname: 'onesignal.com',
                 path: '/api/v1/notifications',
@@ -84,14 +86,10 @@ jobs:
                   'Authorization': `Bearer ${ONESIGNAL_API_KEY}`
                 }
               };
-
               const req = https.request(options, (res) => {
                 let data = '';
                 res.on('data', chunk => data += chunk);
-                res.on('end', () => {
-                  console.log('OneSignal Response:', data);
-                  resolve(data);
-                });
+                res.on('end', () => { console.log('OneSignal response:', data); resolve(data); });
               });
               req.on('error', reject);
               req.write(payload);
@@ -100,52 +98,68 @@ jobs:
           }
 
           async function main() {
-            console.log('Checking for birthdays...');
+            console.log('Fetching sheet...');
             const csv = await fetchURL(SHEET_URL);
+            console.log('First 200 chars:', csv.substring(0, 200));
+            
             const rows = parseCSV(csv);
-            if (rows.length < 2) return;
+            console.log('Total rows:', rows.length);
+            console.log('Headers:', JSON.stringify(rows[0]));
 
             const headers = rows[0].map(h => h.trim());
             const idx = {
-              name: findCol(headers, ['P1_Name','p1_name']),
-              id: findCol(headers, ['P1_ID','p1_id']),
-              cell: findCol(headers, ['P1_Cell','p1_cell']),
-              student: findCol(headers, ['StudentName','studentname']),
-              cls: findCol(headers, ['Class','class']),
-              p2name: findCol(headers, ['P2_Name','p2_name']),
-              p2id: findCol(headers, ['P2_ID','p2_id']),
-              p2cell: findCol(headers, ['P2_Cell','p2_cell']),
+              name:    findCol(headers, ['P1_Name','p1_name']),
+              id:      findCol(headers, ['P1_ID','p1_id']),
+              cell:    findCol(headers, ['P1_Cell','p1_cell','P_1Cell','p_1cell']),
+              student: findCol(headers, ['StudentName','studentname','Student']),
+              cls:     findCol(headers, ['Class','class']),
+              p2name:  findCol(headers, ['P2_Name','p2_name']),
+              p2id:    findCol(headers, ['P2_ID','p2_id']),
+              p2cell:  findCol(headers, ['P2_Cell','p2_cell']),
             };
+            console.log('Column indexes:', JSON.stringify(idx));
 
             const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Johannesburg" }));
             const todayM = now.getMonth() + 1;
             const todayD = now.getDate();
+            console.log('Checking for birthdays on:', todayD + '/' + todayM);
+
             const seen = new Set();
             let count = 0;
 
             for (let i = 1; i < rows.length; i++) {
               const row = rows[i];
-              for (const [nameIdx, idIdx, cellIdx] of [[idx.name, idx.id, idx.cell], [idx.p2name, idx.p2id, idx.p2cell]]) {
+              if (!row || row.length < 2) continue;
+
+              for (const [nameIdx, idIdx, cellIdx] of [
+                [idx.name, idx.id, idx.cell],
+                [idx.p2name, idx.p2id, idx.p2cell]
+              ]) {
                 const id = idIdx >= 0 ? String(row[idIdx]||'').trim() : '';
                 const bd = parseBirthday(id);
-                if (bd && bd.month === todayM && bd.day === todayD && !seen.has(id)) {
-                  seen.add(id);
-                  const name = nameIdx >= 0 ? String(row[nameIdx]||'').trim() : '';
-                  const phone = cellIdx >= 0 ? String(row[cellIdx]||'').trim() : '';
-                  const student = idx.student >= 0 ? String(row[idx.student]||'').trim() : '';
-                  const cls = idx.cls >= 0 ? String(row[idx.cls]||'').trim() : '';
-                  const age = bd.year ? ` — turns ${now.getFullYear() - bd.year} today! 🎉` : '';
-                  const studentStr = student ? ` · Parent of ${student}${cls ? ' ('+cls+')' : ''}` : '';
-                  const phoneStr = phone ? ` · 📱 ${phone}` : '';
-                  
-                  if (name) {
-                    await sendNotification(`🎂 ${name}'s Birthday Today!`, `${name}${age}${studentStr}${phoneStr}`);
-                    count++;
+                if (bd) {
+                  if (bd.month === todayM && bd.day === todayD && !seen.has(id)) {
+                    seen.add(id);
+                    const name = nameIdx >= 0 ? String(row[nameIdx]||'').trim() : '';
+                    const phone = cellIdx >= 0 ? String(row[cellIdx]||'').trim() : '';
+                    const student = idx.student >= 0 ? String(row[idx.student]||'').trim() : '';
+                    const cls = idx.cls >= 0 ? String(row[idx.cls]||'').trim() : '';
+                    const age = bd.year ? ` — turns ${now.getFullYear() - bd.year} today!` : '';
+                    const studentStr = student ? ` · Parent of ${student}${cls ? ' ('+cls+')' : ''}` : '';
+                    const phoneStr = phone ? ` · 📱 ${phone}` : '';
+                    console.log('Found birthday:', name, bd);
+                    if (name) {
+                      await sendNotification(
+                        `🎂 ${name}'s Birthday Today!`,
+                        `${name}${age}${studentStr}${phoneStr}`
+                      );
+                      count++;
+                    }
                   }
                 }
               }
             }
-            console.log(`Finished. Sent ${count} notification(s).`);
+            console.log('Finished. Sent', count, 'notification(s).');
           }
 
           main().catch(console.error);
