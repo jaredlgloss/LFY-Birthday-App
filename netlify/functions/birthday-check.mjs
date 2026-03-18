@@ -6,7 +6,7 @@ const ONESIGNAL_API_KEY = process.env.ONESIGNAL_API_KEY;
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkT7f-mh_GDS_rmdOf-7LFCWlQom1haqkIKpxNLiqmARUlLrQ88BG9B_tgvNhhrw/pub?gid=48598000&single=true&output=csv";
 
 export const config = {
-  schedule: "0 6 * * *" // 6am UTC = 8am South Africa time
+  schedule: "50 6 * * *" // 6 50am UTC = 8 50am South Africa time
 };
 
 export default async function() {
